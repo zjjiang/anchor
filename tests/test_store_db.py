@@ -45,3 +45,14 @@ def test_today_cst_is_cst_calendar_day(fresh_db):
     utc_now = datetime.now(UTC)
     cst_date = (utc_now + timedelta(hours=8)).strftime("%Y-%m-%d")
     assert value == cst_date
+
+
+def test_schema_v2_creates_impulses(fresh_db):
+    with fresh_db.get_conn() as conn:
+        (row,) = conn.execute("SELECT version FROM schema_version").fetchall()
+        names = {
+            r["name"]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert row["version"] == 2
+    assert "impulses" in names

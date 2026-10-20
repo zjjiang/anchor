@@ -29,7 +29,7 @@ Anchor 是内在稳定助手：每天用自然语言 check-in 几分钟，把脑
 
 ```bash
 uv sync                                    # 装依赖
-uv run pytest -q                           # 测试（108 个）
+uv run pytest -q                           # 测试（134 个）
 uv run python scripts/smoke_stdio.py       # MCP stdio 全链路冒烟
 uv run uvicorn app.api:app --port 8903     # 只读看板（可选）
 uv run python -m app.mcp_server            # MCP server（龙虾接入，见 docs/lobster-setup.md）
@@ -43,4 +43,5 @@ uv run python -m app.mcp_server            # MCP server（龙虾接入，见 doc
    不出本机、不进云端明文
 2. `shared_status` 只出抽象状态，契约测试（`tests/test_mcp_contract.py`）不许删
 3. 无改写/删除已有记录的工具，check-in 原文一经落库永久保留
-4. 第一阶段不做：Impulse Guard 工具、自动模式检测、跨系统实际接线、情绪评分仪表盘
+4. 第一阶段不做、第二阶段已含 Impulse Guard（检查点/回填/统计）；仍不做：自动模式检测、
+   跨系统实际接线、情绪评分仪表盘

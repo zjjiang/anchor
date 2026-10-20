@@ -102,3 +102,37 @@ class TestStressThresholds:
             "checkin_streak",
             "note",
         }
+
+
+class TestImpulseKind:
+    def test_five_kinds_with_labels(self):
+        assert set(domain.IMPULSE_KINDS) == {"spending", "transfer", "conflict", "resignation", "other"}
+        assert domain.IMPULSE_KIND_LABELS["spending"] == "大额消费"
+
+    def test_preset_case_insensitive(self):
+        assert domain.normalize_impulse_kind(" Spending ") == "spending"
+        assert domain.is_preset_impulse_kind("spending")
+        assert not domain.is_preset_impulse_kind("other")
+
+    def test_unknown_falls_back(self):
+        assert domain.normalize_impulse_kind("Investment") == "investment"
+
+    def test_empty_rejected(self):
+        for bad in ["", "  ", None]:
+            with pytest.raises(domain.DomainError):
+                domain.normalize_impulse_kind(bad)
+
+
+class TestOutcomeAndChecklist:
+    def test_outcomes(self):
+        assert domain.validate_outcome("executed") == "executed"
+        assert domain.validate_outcome("dropped") == "dropped"
+        with pytest.raises(domain.DomainError):
+            domain.validate_outcome("maybe")
+
+    def test_checklist_template_with_interpolation(self):
+        card = domain.build_checklist("买新笔记本", "2026-10-22T00:00:00+00:00")
+        assert set(card) == {"facts", "worst_case", "future_self"}
+        assert "买新笔记本" in card["facts"]
+        assert "2026-10-22T00:00:00+00:00" in card["future_self"]
+        assert domain.IMPULSIVE_WINDOW_HOURS == 24
