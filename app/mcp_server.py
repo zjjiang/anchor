@@ -22,6 +22,7 @@ from app.modules import shared_status as shared_status_module
 from app.modules import weekly as weekly_module
 from app.store import checkins as checkins_store
 from app.store import db
+from app.store import impulses as impulses_store
 from app.store import patterns as patterns_store
 from app.store import pressures as pressures_store
 from app.store import weekly as weekly_store
@@ -292,6 +293,88 @@ def list_patterns(status: str | None = None) -> str:
     """【仅 anchor 语境】回看模式清单（可按 active/watched/resolved 过滤）。
     check-in 时可用它提醒用户"你最近反复卡在哪里"。"""
     return _guard(_list_patterns, status=status)
+
+
+# --------------------------------------------------------- impulse_checkpoint
+
+
+def _impulse_checkpoint(
+    kind: str,
+    claim: str,
+    amount: float | None,
+    emotion_level: int | None,
+    note: str | None,
+) -> str:
+    iid = impulses_store.insert(
+        {
+            "kind": kind,
+            "claim": claim,
+            "amount": amount,
+            "emotion_level": emotion_level,
+            "note": note,
+        }
+    )
+    row = impulses_store.get(iid)
+    return json.dumps(
+        {
+            "impulse_id": iid,
+            "decision_due": row["decision_due"],
+            "checklist": domain.build_checklist(row["claim"], row["decision_due"]),
+        },
+        ensure_ascii=False,
+    )
+
+
+@mcp.tool
+def impulse_checkpoint(
+    kind: str,
+    claim: str,
+    amount: float | None = None,
+    emotion_level: int | None = None,
+    note: str | None = None,
+) -> str:
+    """【仅 anchor 语境】冲动决策检查点：用户情绪高点要做重大决定（大额消费/转账/
+    激烈争吵/辞职等）时，先调这个再陪聊——kind 是决定类型（spending/transfer/conflict/
+    resignation/other），claim 是用户想做什么，amount/emotion_level 可选。返回记录 id、
+    decision_due（24h 后）与三步检查单（事实核对/最坏后果/24h视角），按检查单陪用户放慢。"""
+    return _guard(
+        _impulse_checkpoint,
+        kind=kind,
+        claim=claim,
+        amount=amount,
+        emotion_level=emotion_level,
+        note=note,
+    )
+
+
+# ------------------------------------------------------------ resolve_impulse
+
+
+def _resolve_impulse(impulse_id: str, outcome: str, note: str | None) -> str:
+    impulses_store.resolve(impulse_id, outcome, note=note)
+    return json.dumps({"impulse_id": impulse_id, "outcome": outcome}, ensure_ascii=False)
+
+
+@mcp.tool
+def resolve_impulse(impulse_id: str, outcome: str, note: str | None = None) -> str:
+    """【仅 anchor 语境】冲动决策 24h 后回填结果：outcome 是 executed（执行了）或
+    dropped（放弃了），note 可记录最终想法。只能对 open 状态回填一次。
+    定期用 list_impulses 找 stale 的记录提醒用户收尾。"""
+    return _guard(_resolve_impulse, impulse_id=impulse_id, outcome=outcome, note=note)
+
+
+# ------------------------------------------------------------- list_impulses
+
+
+def _list_impulses(days: int) -> str:
+    return json.dumps(impulses_store.list_window(days=days), ensure_ascii=False)
+
+
+@mcp.tool
+def list_impulses(days: int = 30) -> str:
+    """【仅 anchor 语境】近 N 天冲动决策清单与统计：executed/dropped 比例是核心数字；
+    stale=true 的条目已过 24h 还没回填，周复盘时提醒用户收尾。"""
+    return _guard(_list_impulses, days=days)
 
 
 # -------------------------------------------------------------- shared_status

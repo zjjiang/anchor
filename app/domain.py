@@ -34,10 +34,32 @@ STRESS_THRESHOLDS: dict[str, float] = {
     "high_intensity_ratio": 0.5,  # intensity≥4 占比超过此值 → high
 }
 
-# shared_status 返回字段白名单（隐私红线：多一个自由文本字段都不行）
+# shared_status 返回字段白名单（隐私红线：多一个自由文本字段都不行；
+# impulses 永不进入此白名单——抽象状态保持"状态不事件"）
 SHARED_STATUS_FIELDS = frozenset(
     {"period", "overall_stress_level", "top_domains", "checkin_streak", "note"}
 )
+
+# 冲动决策类型：四预置 + other 兜底（未知值原样保留，同压力领域模式）
+IMPULSE_KIND_LABELS: dict[str, str] = {
+    "spending": "大额消费",
+    "transfer": "转账",
+    "conflict": "激烈争吵",
+    "resignation": "辞职",
+}
+IMPULSE_KINDS = frozenset(IMPULSE_KIND_LABELS) | {"other"}
+
+# 冲动回填结果（状态迁移通道：resolve_impulse 是唯一出口）
+IMPULSE_OUTCOMES = {"executed": "executed", "dropped": "dropped"}
+
+IMPULSIVE_WINDOW_HOURS = 24
+
+# 冲动检查单模板（固定句式，可带插值；机器可验证"四要素给过"）
+IMPULSE_CHECKLIST_TEMPLATES: dict[str, str] = {
+    "facts": "先把 {claim} 拆成事实：哪些是已经发生的，哪些是你预计的？",
+    "worst_case": "最坏后果：如果做了，最坏会怎样？这个结果一周后还能挽回吗？",
+    "future_self": "24 小时视角：睡一觉之后，你还会想这么做吗？先放到现在与 {due} 之间。",
+}
 
 
 class DomainError(ValueError):
@@ -87,6 +109,34 @@ def validate_status(value: Any) -> str:
     if value not in PATTERN_STATUSES:
         raise DomainError(f"模式状态必须是 {'/'.join(sorted(PATTERN_STATUSES))} 之一")
     return value
+
+
+def normalize_impulse_kind(raw: Any) -> str:
+    """冲动类型规范化：预置枚举大小写不敏感归一；未知值兜底保留原文。"""
+    if not isinstance(raw, str) or not raw.strip():
+        raise DomainError("冲动类型不能为空")
+    value = raw.strip().lower()
+    if value in IMPULSE_KINDS:
+        return value
+    if len(value) > 50:
+        raise DomainError("冲动类型名称过长（最多 50 字符）")
+    return value
+
+
+def is_preset_impulse_kind(value: str) -> bool:
+    return value in IMPULSE_KIND_LABELS
+
+
+def validate_outcome(value: Any) -> str:
+    """冲动回填结果：executed / dropped。"""
+    if value not in IMPULSE_OUTCOMES:
+        raise DomainError("回填结果必须是 executed（执行了）或 dropped（放弃了）")
+    return value
+
+
+def build_checklist(claim: str, due: str) -> dict[str, str]:
+    """检查单：固定模板句 + claim/due 插值，四要素机器可验证。"""
+    return {key: text.format(claim=claim, due=due) for key, text in IMPULSE_CHECKLIST_TEMPLATES.items()}
 
 
 def derive_stress_level(count: int, high_intensity_ratio: float) -> str:

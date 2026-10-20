@@ -27,8 +27,9 @@ uv run pytest -q   # 应全绿
 }
 ```
 
-重启龙虾后确认工具清单出现 8 个：`log_checkin` / `log_pressure` / `list_pressures` /
-`get_week_data` / `save_weekly_review` / `log_pattern` / `list_patterns` / `shared_status`。
+重启龙虾后确认工具清单出现 11 个：`log_checkin` / `log_pressure` / `list_pressures` /
+`get_week_data` / `save_weekly_review` / `log_pattern` / `list_patterns` / `shared_status` /
+`impulse_checkpoint` / `resolve_impulse` / `list_impulses`。
 
 > MCP 面任何改动后必跑：`uv run python scripts/smoke_stdio.py`
 
@@ -52,6 +53,6 @@ uv run pytest -q   # 应全绿
 ## 6. 冒烟自检
 
 ```bash
-uv run python scripts/smoke_stdio.py   # 12 项 stdio 全链路
-uv run pytest -q                       # 108 个测试
+uv run python scripts/smoke_stdio.py   # 17 项 stdio 全链路
+uv run pytest -q                       # 134 个测试
 ```

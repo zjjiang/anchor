@@ -16,7 +16,7 @@ from pathlib import Path
 
 DB_PATH = Path(os.environ.get("ANCHOR_DB", "data/anchor.db"))
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -74,6 +74,23 @@ CREATE INDEX IF NOT EXISTS idx_pressures_time ON pressures(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_pressures_checkin ON pressures(checkin_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_date ON checkins(checkin_date);
 CREATE INDEX IF NOT EXISTS idx_reviews_week ON weekly_reviews(week_start);
+
+CREATE TABLE IF NOT EXISTS impulses (
+    id           TEXT PRIMARY KEY,
+    occurred_at  TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    is_custom_kind INTEGER NOT NULL DEFAULT 0,
+    claim        TEXT NOT NULL,
+    amount       REAL,
+    emotion_level INTEGER,
+    note         TEXT,
+    status       TEXT NOT NULL DEFAULT 'open',
+    decision_due TEXT NOT NULL,
+    decided_at   TEXT,
+    created_at   TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_impulses_time ON impulses(occurred_at);
 """
 
 _CST = timezone(timedelta(hours=8))
@@ -135,6 +152,9 @@ def init_db() -> None:
         row = conn.execute("SELECT version FROM schema_version").fetchone()
         if row is None:
             conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+        elif row["version"] < SCHEMA_VERSION:
+            # 幂等建库已补齐新对象，版本跟随代码前进（只升不降）
+            conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
         elif row["version"] > SCHEMA_VERSION:
             raise RuntimeError(
                 f"数据库版本 {row['version']} 高于代码版本 {SCHEMA_VERSION}，"

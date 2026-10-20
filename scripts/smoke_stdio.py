@@ -33,7 +33,7 @@ async def main() -> None:
     async with Client(transport) as client:
         tools = {t.name for t in await client.list_tools()}
         ok(
-            "工具清单 = 8 个且无改写类",
+            "工具清单 = 11 个且无改写类",
             tools == {
                 "log_checkin",
                 "log_pressure",
@@ -43,6 +43,9 @@ async def main() -> None:
                 "log_pattern",
                 "list_patterns",
                 "shared_status",
+                "impulse_checkpoint",
+                "resolve_impulse",
+                "list_impulses",
             },
         )
 
@@ -103,6 +106,34 @@ async def main() -> None:
             set(status) == {"period", "overall_stress_level", "top_domains", "checkin_streak", "note"},
         )
         ok("隐私：原文不出现在抽象状态", "冒烟：今天有点累" not in raw.content[0].text)
+
+        raw = await client.call_tool(
+            "impulse_checkpoint",
+            {"kind": "spending", "claim": "冒烟：想买两万的相机", "amount": 20000, "emotion_level": 4},
+        )
+        checkpoint = json.loads(raw.content[0].text)
+        ok("impulse_checkpoint 落库", checkpoint["impulse_id"] == "i1")
+        ok(
+            "检查单四要素齐全",
+            set(checkpoint["checklist"]) == {"facts", "worst_case", "future_self"}
+            and "想买两万的相机" in checkpoint["checklist"]["facts"]
+            and "T" in checkpoint["decision_due"],
+        )
+        ok("隐私：冲动 claim 不进抽象状态", "两万的相机" not in json.dumps(status, ensure_ascii=False))
+
+        raw = await client.call_tool(
+            "resolve_impulse", {"impulse_id": "i1", "outcome": "dropped", "note": "冒烟：放下了"}
+        )
+        ok("resolve_impulse 回填", json.loads(raw.content[0].text)["outcome"] == "dropped")
+
+        raw = await client.call_tool("list_impulses", {"days": 30})
+        impulse_data = json.loads(raw.content[0].text)
+        ok(
+            "list_impulses 统计口径",
+            impulse_data["stats"]["dropped"] == 1
+            and impulse_data["stats"]["executed_ratio"] == 0.0
+            and all(not i["stale"] for i in impulse_data["items"]),
+        )
 
         try:
             await client.call_tool("log_checkin", {"raw_text": "   "})

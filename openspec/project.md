@@ -45,11 +45,13 @@ uv run python -m app.mcp_server                # MCP stdio server（龙虾接入
 
 ## 范围纪律
 
-第一阶段（add-anchor-core）只做主链路四件 + 模式记录 + shared_status 工具 + 只读看板。
+第一阶段（add-anchor-core）主链路四件 + 模式记录 + shared_status + 只读看板，已完成。
+第二阶段进行中：Impulse Guard 已落地（add-impulse-guard：检查点/回填/统计，impulses
+不进 shared_status 白名单）。
 
-**不做**：Impulse Guard、自动模式检测、shared_status 与 deputy/steward 实际接线、
-情绪评分体系、mood 仪表盘、测试题/表单、提议门禁（日记型数据直写）、用户认证。
-扩展前先回本节确认。
+**不做**：自动模式检测、shared_status 与 deputy/steward 实际接线、冲动 24h 自动推送
+（龙虾 cron 职责）、金额阈值/预算联动、情绪评分体系、mood 仪表盘、测试题/表单、
+提议门禁（日记型数据直写）、用户认证。扩展前先回本节确认。
 
 ## 成功标准
 
