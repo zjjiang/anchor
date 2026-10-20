@@ -1,0 +1,24 @@
+[project]
+name = "anchor"
+version = "0.1.0"
+description = "Anchor —— Personal OS 第四个同构后端，管心绪：Daily Check-in / 压力记录 / 周复盘"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "fastmcp>=2.0",
+    "uvicorn>=0.34",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
