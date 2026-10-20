@@ -1,0 +1,13 @@
+# 数据不出墙：SQLite 库永不入库
+data/
+*.db
+*.db-wal
+*.db-shm
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+.DS_Store

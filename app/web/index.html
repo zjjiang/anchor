@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anchor · 心绪看板</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --ink: #2b2a28; --muted: #8a8578;
+    --line: #e6e2d8; --accent: #5b7a6f; --accent-soft: #e8efe c;
+    --low: #5b7a6f; --mid: #b08a3e; --high: #b05a4a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1d1e1c; --card: #26272495; --card: #262724; --ink: #e8e5dd; --muted: #99948a;
+      --line: #383935; --accent: #8fb3a6; --accent-soft: #2a332f;
+      --low: #8fb3a6; --mid: #cfa457; --high: #d07a68;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.7 -apple-system, "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    padding: 24px 16px 48px;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: 1px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .summary {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 16px; margin: 16px 0 28px;
+  }
+  .badge {
+    font-size: 13px; padding: 2px 12px; border-radius: 999px; color: #fff;
+  }
+  .badge.low { background: var(--low); } .badge.mid { background: var(--mid); }
+  .badge.high { background: var(--high); }
+  .summary .note { color: var(--muted); font-size: 14px; }
+  h2 { font-size: 15px; color: var(--muted); font-weight: 600; margin: 30px 0 10px; letter-spacing: 2px; }
+  .grid { display: grid; gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+  .card .date { color: var(--muted); font-size: 13px; margin-bottom: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 0 8px; font-size: 12px; }
+  .slot { margin: 2px 0; }
+  .slot b { font-weight: 600; }
+  .slot.muted { color: var(--muted); }
+  .bars { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 40px; align-items: center; gap: 10px; font-size: 14px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--accent); opacity: .85; min-width: 2px; }
+  .empty { color: var(--muted); text-align: center; padding: 18px; }
+  .review .q { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .review .narrative { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; white-space: pre-wrap; }
+  .footer { margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Anchor</h1>
+    <span class="sub">心绪看板 · 只读 · 数据不出本机</span>
+  </header>
+
+  <div class="summary" id="summary"><span class="note">加载中…</span></div>
+
+  <h2>近期 CHECK-IN</h2>
+  <div class="grid" id="checkins"><div class="empty">加载中…</div></div>
+
+  <h2>压力领域 · 近 30 天</h2>
+  <div class="card" id="pressures"><div class="empty">加载中…</div></div>
+
+  <h2>模式观察</h2>
+  <div class="grid" id="patterns"><div class="empty">加载中…</div></div>
+
+  <h2>周复盘归档</h2>
+  <div class="grid" id="reviews"><div class="empty">加载中…</div></div>
+
+  <div class="footer">原文只存在于 Anchor 数据库，看板仅展示梳理结果。</div>
+</main>
+
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const get = async url => (await fetch(url)).json();
+const SLOT_NAMES = { fact: "事实", feeling: "感受", worry: "担心", speculation: "猜测放大", next_action: "最小行动" };
+const DOMAIN_NAMES = { work: "工作", family: "家庭", relations: "其他关系", money: "金钱", energy: "精力", self: "自我评价" };
+const dn = d => DOMAIN_NAMES[d] || d;
+
+async function loadSummary() {
+  const s = await get("/api/summary");
+  const pct = { low: "平稳", mid: "上升", high: "偏高" }[s.overall_stress_level];
+  document.getElementById("summary").innerHTML =
+    `<span class="badge ${s.overall_stress_level}">${esc(pct)}</span>` +
+    `<span class="note">${esc(s.note)}</span>` +
+    `<span class="note">近 7 天 check-in ${s.checkin_streak} 天</span>`;
+}
+
+async function loadCheckins() {
+  const rows = await get("/api/checkins?days=30");
+  const el = document.getElementById("checkins");
+  if (!rows.length) { el.innerHTML = '<div class="empty">近 30 天还没有 check-in</div>'; return; }
+  el.innerHTML = rows.map(c => {
+    const slots = Object.entries(SLOT_NAMES).map(([k, name]) =>
+      c[k] ? `<div class="slot"><b>${name}</b>：${esc(c[k])}</div>` : ""
+    ).join("") || '<div class="slot muted">（闲聊式 check-in，无梳理槽位）</div>';
+    const tags = (c.pressure_domains || []).map(d => `<span class="tag">${esc(dn(d))}</span>`).join("");
+    return `<div class="card"><div class="date">${esc(c.checkin_date)} ${tags}</div>${slots}</div>`;
+  }).join("");
+}
+
+async function loadPressures() {
+  const data = await get("/api/pressures?days=30");
+  const el = document.getElementById("pressures");
+  if (!data.distribution.length) { el.innerHTML = '<div class="empty">近 30 天没有压力记录</div>'; return; }
+  const max = Math.max(...data.distribution.map(d => d.count));
+  const bars = data.distribution.map(d =>
+    `<div class="bar-row"><span>${esc(dn(d.domain))}</span>` +
+    `<div class="bar" style="width:${Math.round(d.count / max * 100)}%"></div>` +
+    `<span style="color:var(--muted)">${d.count}</span></div>`
+  ).join("");
+  const custom = data.custom_domains.length
+    ? `<div class="date" style="margin-top:10px">待归并：${data.custom_domains.map(esc).join("、")}</div>` : "";
+  el.innerHTML = `<div class="bars">${bars}</div>${custom}`;
+}
+
+async function loadPatterns() {
+  const rows = await get("/api/patterns");
+  const el = document.getElementById("patterns");
+  if (!rows.length) { el.innerHTML = '<div class="empty">还没有记录模式</div>'; return; }
+  const statusName = { active: "观察中", watched: "已留意", resolved: "已化解" };
+  el.innerHTML = rows.map(p =>
+    `<div class="card"><div class="date">${esc(p.first_seen)} 起 · ${esc(statusName[p.status])} · 证据 ${p.evidence_count} 条</div>` +
+    `${esc(p.description)}${p.note ? `<div class="slot muted" style="margin-top:4px">${esc(p.note)}</div>` : ""}</div>`
+  ).join("");
+}
+
+async function loadReviews() {
+  const rows = await get("/api/reviews");
+  const el = document.getElementById("reviews");
+  if (!rows.length) { el.innerHTML = '<div class="empty">还没有周复盘</div>'; return; }
+  const qs = [["main_sources", "本周主要压力来源"], ["recurring", "重复出现的问题"],
+              ["easing_vs_worsening", "缓解 vs 恶化"], ["improved", "本周改善"], ["focus_next", "下周最值得关注"]];
+  el.innerHTML = rows.map(r =>
+    `<div class="card review"><div class="date">${esc(r.week_start)} 那一周</div>` +
+    qs.map(([k, name]) => `<div class="q">${name}</div><div>${esc(r[k])}</div>`).join("") +
+    `<div class="narrative">${esc(r.narrative)}</div></div>`
+  ).join("");
+}
+
+loadSummary().catch(() => {});
+loadCheckins().catch(() => {});
+loadPressures().catch(() => {});
+loadPatterns().catch(() => {});
+loadReviews().catch(() => {});
+</script>
+</body>
+</html>
